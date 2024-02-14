@@ -2,7 +2,8 @@
 
 pragma solidity ^0.8.20;
 
-import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
+import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
 /**
  * @title Lotttery Smart Contract
@@ -10,10 +11,15 @@ import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/interfaces/vrf
  * @notice This contract handles the lottery logic
  * @dev Implements Chainnlink VRFv2
  */
-contract Lottery {
+contract Lottery is VRFConsumerBaseV2 {
     /**
      * Types
      */
+    enum LotteryState {
+        OPEN, // 0
+        CALCULATING // 1
+
+    }
 
     /**
      * Storage Variables
@@ -32,6 +38,9 @@ contract Lottery {
     uint256 private s_interval;
     uint256 private s_lastTimeStamp;
     address payable[] private s_players;
+    address private s_recentWinner;
+
+    LotteryState private s_lotteryState;
 
     /**
      * Events
@@ -39,11 +48,14 @@ contract Lottery {
     event EnteredLottery(address indexed player);
     event SetEntranceFee(uint256 indexed fee);
     event SetInterval(uint256 indexed interval);
+    event PickedWinner(address indexed winner);
 
     /**
      * Errors
      */
     error Lottery__InsufficientFee();
+    error Lottery__TransferFailed();
+    error Lottery__LotteryNotOpen();
 
     /**
      * Modifiers
@@ -58,15 +70,17 @@ contract Lottery {
         bytes32 gasLane,
         uint64 subscriptionId,
         uint32 callbackGasLimit
-    ) {
+    ) VRFConsumerBaseV2(vrfCoordinator) {
         s_entranceFee = entranceFee;
         s_interval = interval;
-        s_lastTimeStamp = block.timestamp;
 
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinator);
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
+
+        s_lotteryState = LotteryState.OPEN;
+        s_lastTimeStamp = block.timestamp;
     }
 
     /**
@@ -80,6 +94,10 @@ contract Lottery {
     /// @notice Enters lottery ticket
     function enterLottery() public payable {
         if (msg.value < s_entranceFee) revert Lottery__InsufficientFee();
+
+        if (s_lotteryState != LotteryState.OPEN) {
+            revert Lottery__LotteryNotOpen();
+        }
         s_players.push(payable(msg.sender));
 
         emit EnteredLottery(msg.sender);
@@ -90,9 +108,32 @@ contract Lottery {
         if ((block.timestamp - s_lastTimeStamp) < s_interval) {
             revert();
         }
+
+        s_lotteryState = LotteryState.CALCULATING;
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane, i_subscriptionId, REQUEST_CONFIRMATIONS, i_callbackGasLimit, NUM_WORDS
         );
+    }
+
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+        // effects on own contract
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable winner = s_players[indexOfWinner];
+        s_recentWinner = winner;
+
+        // here, wouldn't it possible that someone might enter the lottery before the winner is paid.
+        // The next round might then override the current winner?
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
+        s_lotteryState = LotteryState.OPEN;
+
+        emit PickedWinner(winner);
+
+        // interactions with other contracts
+        (bool success,) = s_recentWinner.call{value: address(this).balance}("");
+        if (!success) {
+            revert Lottery__TransferFailed();
+        }
     }
 
     /// @notice Sets entry fee
