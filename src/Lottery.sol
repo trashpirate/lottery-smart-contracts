@@ -56,6 +56,7 @@ contract Lottery is VRFConsumerBaseV2 {
     error Lottery__InsufficientFee();
     error Lottery__TransferFailed();
     error Lottery__LotteryNotOpen();
+    error Lottery__UpkeepNotNeeded(uint256 currentBalance, uint256 numPlayers, uint256 lotteryState, uint256 timestamp);
 
     /**
      * Modifiers
@@ -103,19 +104,45 @@ contract Lottery is VRFConsumerBaseV2 {
         emit EnteredLottery(msg.sender);
     }
 
-    /// @notice Picks a lottery winner
-    function pickWinner() external {
-        if ((block.timestamp - s_lastTimeStamp) < s_interval) {
-            revert();
-        }
+    /**
+     * @dev This is the function that the Chainlink Automation nodes call to see if
+     * it's time to perform an upkeep.
+     * The following should be true for this to return true:
+     * 1. The time interval has passed between lottery runs
+     * 2. The lottery state is OPEN
+     * 3. The contract has ETH
+     * 4. Has players
+     * 5. The subscription is funded with LINK
+     */
+    function checkUpkeep(bytes memory /* check data */ )
+        public
+        view
+        returns (bool upkeepNeeded, bytes memory /* performData */ )
+    {
+        bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) >= s_interval);
+        bool isOpen = LotteryState.OPEN == s_lotteryState;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
 
+        upkeepNeeded = (timeHasPassed && isOpen && hasBalance && hasPlayers);
+        return (upkeepNeeded, "0x0");
+    }
+
+    /// @notice Picks a lottery winner
+    function performUpkeep(bytes calldata /* performData */ ) external {
+        (bool upkeepNeeded,) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Lottery__UpkeepNotNeeded(
+                address(this).balance, s_players.length, uint256(s_lotteryState), block.timestamp
+            );
+        }
         s_lotteryState = LotteryState.CALCULATING;
-        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+        i_vrfCoordinator.requestRandomWords(
             i_gasLane, i_subscriptionId, REQUEST_CONFIRMATIONS, i_callbackGasLimit, NUM_WORDS
         );
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256, /*requestId*/ uint256[] memory randomWords) internal override {
         // effects on own contract
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
@@ -154,5 +181,13 @@ contract Lottery is VRFConsumerBaseV2 {
      */
     function getEntranceFee() external view returns (uint256) {
         return s_entranceFee;
+    }
+
+    function getLotteryState() external view returns (LotteryState) {
+        return s_lotteryState;
+    }
+
+    function getPlayerAtIndex(uint256 indexOfPlayer) external view returns (address) {
+        return s_players[indexOfPlayer];
     }
 }
