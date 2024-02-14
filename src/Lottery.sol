@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/interfaces/vrf/VRFCoordinatorV2Interface.sol";
 
 /**
  * @title Lotttery Smart Contract
@@ -18,11 +18,11 @@ contract Lottery {
     /**
      * Storage Variables
      */
-    uint256 private constant REQUEST_CONFIRMATIONS = 3;
-    uint256 private constant NUM_WORDS = 1;
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    uint32 private constant NUM_WORDS = 1;
 
-    address private immutable i_vrfCoordinator;
-    uint256 private immutable i_gasLane;
+    VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
+    bytes32 private immutable i_gasLane;
     uint64 private immutable i_subscriptionId;
     uint32 private immutable i_callbackGasLimit;
 
@@ -56,14 +56,14 @@ contract Lottery {
         uint256 interval,
         address vrfCoordinator,
         bytes32 gasLane,
-        uint256 subscriptionId,
+        uint64 subscriptionId,
         uint32 callbackGasLimit
     ) {
         s_entranceFee = entranceFee;
         s_interval = interval;
         s_lastTimeStamp = block.timestamp;
 
-        i_vrfCoordinator = vrfCoordinator;
+        i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinator);
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
