@@ -4,3 +4,4 @@ foundry-devops/=lib/foundry-devops/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 @chainlink/contracts/=lib/chainlink/contracts/
 @solmate/=lib/solmate/src/
+foundry-devops/=lib/foundry-devops
