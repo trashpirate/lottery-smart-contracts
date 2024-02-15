@@ -16,6 +16,7 @@ contract LotteryTest is Test {
     bytes32 gasLane;
     uint64 subscriptionId;
     uint32 callbackGasLimit;
+    address link;
 
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_USER_BALANCE = 10 ether;
@@ -30,7 +31,7 @@ contract LotteryTest is Test {
         DeployLottery deployer = new DeployLottery();
         (lottery, helperConfig) = deployer.run();
 
-        (entranceFee, interval, vrfCoordinator, gasLane, subscriptionId, callbackGasLimit) =
+        (entranceFee, interval, vrfCoordinator, gasLane, subscriptionId, callbackGasLimit, link) =
             helperConfig.activeNetworkConfig();
 
         deal(PLAYER, STARTING_USER_BALANCE);

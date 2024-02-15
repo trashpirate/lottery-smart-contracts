@@ -5,6 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {Lottery} from "../src/Lottery.sol";
 
 import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
 
 contract HelperConfig is Script {
     // chain configurations
@@ -63,6 +64,7 @@ contract HelperConfig is Script {
         uint96 gasPriceLink = 1e9; // 1 gwei LINK
 
         vm.startBroadcast();
+        LinkToken linkToken = new LinkToken();
         VRFCoordinatorV2Mock vrfCoordinatorMock = new VRFCoordinatorV2Mock(baseFee, gasPriceLink);
         vm.stopBroadcast();
 
@@ -72,7 +74,8 @@ contract HelperConfig is Script {
             vrfCoordinator: address(vrfCoordinatorMock),
             gasLane: 0x114f3da0a805b6a67d6e9cd2ec746f7028f1b7376365af575cfea3550dd1aa04,
             subscriptionId: 0,
-            callbackGasLimit: 500000
+            callbackGasLimit: 500000,
+            link: address(linkToken)
         });
     }
 }
