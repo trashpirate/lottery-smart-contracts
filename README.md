@@ -11,13 +11,37 @@
 
 
 ## About
-This repo includes the smart contracts for a proveably random smart contract lottery.
+This repo includes the smart contracts for a proveably random smart contract lottery. Contract is deployed on BNB Testnet.
 
 ## Installation
 
+### Install dependencies
 ```bash
 $ make install
 ```
+
+## Usage
+Before running any commands, create a .env file and add the following environment variables:
+```bash
+RPC_BSC_TEST=<rpc url>
+BSCSCAN_KEY=<api key>
+TESTNET_PRIVATE_KEY=<private key of your TEST wallet (no real money)>
+```
+
+### Run tests
+```bash
+$ forge test
+```
+
+### Deploy contract
+```bash
+$ make deploy ARGS="--network bsctest"
+```
+
+## Deployments
+
+### Testnet
+https://testnet.bscscan.com/address/0x66bd5b8dcd824961b7ba94abaf9c5089e9b828fb#readContract
 
 ## Author
 
