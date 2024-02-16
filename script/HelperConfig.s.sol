@@ -19,7 +19,10 @@ contract HelperConfig is Script {
         uint64 subscriptionId;
         uint32 callbackGasLimit;
         address link;
+        uint256 deployerKey;
     }
+
+    uint256 public constant ANVIL_DEFAULT_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
     constructor() {
         if (block.chainid == 56) {
@@ -31,7 +34,7 @@ contract HelperConfig is Script {
         }
     }
 
-    function getBinanceTestnetConfig() public pure returns (NetworkConfig memory) {
+    function getBinanceTestnetConfig() public view returns (NetworkConfig memory) {
         return NetworkConfig({
             entranceFee: 0.01 ether,
             interval: 30,
@@ -39,7 +42,8 @@ contract HelperConfig is Script {
             gasLane: 0xd4bb89654db74673a187bd804519e65e3f71a52bc55f11da7601a13dcf505314,
             subscriptionId: 3386,
             callbackGasLimit: 500000,
-            link: 0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06
+            link: 0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06,
+            deployerKey: vm.envUint("TESTNET_PRIVATE_KEY")
         });
     }
 
@@ -51,7 +55,8 @@ contract HelperConfig is Script {
             gasLane: 0x114f3da0a805b6a67d6e9cd2ec746f7028f1b7376365af575cfea3550dd1aa04,
             subscriptionId: 0,
             callbackGasLimit: 500000,
-            link: 0x404460C6A5EdE2D891e8297795264fDe62ADBB75
+            link: 0x404460C6A5EdE2D891e8297795264fDe62ADBB75,
+            deployerKey: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
         });
     }
 
@@ -75,7 +80,8 @@ contract HelperConfig is Script {
             gasLane: 0x114f3da0a805b6a67d6e9cd2ec746f7028f1b7376365af575cfea3550dd1aa04,
             subscriptionId: 0,
             callbackGasLimit: 500000,
-            link: address(linkToken)
+            link: address(linkToken),
+            deployerKey: ANVIL_DEFAULT_KEY
         });
     }
 }

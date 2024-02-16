@@ -9,7 +9,7 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBa
  * @title Lotttery Smart Contract
  * @author Nadina Oates
  * @notice This contract handles the lottery logic
- * @dev Implements Chainnlink VRFv2
+ * @dev Implements Chainlink VRFv2 and Chainlink Automation
  */
 contract Lottery is VRFConsumerBaseV2 {
     /**
@@ -33,8 +33,6 @@ contract Lottery is VRFConsumerBaseV2 {
     uint32 private immutable i_callbackGasLimit;
 
     uint256 private s_entranceFee;
-
-    /// @dev Duration of the lottery in seconds
     uint256 private s_interval;
     uint256 private s_lastTimeStamp;
     address payable[] private s_players;
@@ -46,9 +44,8 @@ contract Lottery is VRFConsumerBaseV2 {
      * Events
      */
     event EnteredLottery(address indexed player);
-    event SetEntranceFee(uint256 indexed fee);
-    event SetInterval(uint256 indexed interval);
     event PickedWinner(address indexed winner);
+    event RequestedLotteryWinner(uint256 indexed requestId);
 
     /**
      * Errors
@@ -64,6 +61,11 @@ contract Lottery is VRFConsumerBaseV2 {
 
     /// @notice Constructor
     /// @param entranceFee minimum lottery fee
+    /// @param interval lottery round interval in seconds
+    /// @param vrfCoordinator Chainlink VRFCoordinator contract to receive true random number
+    /// @param gasLane gas lane for chainlink automation
+    /// @param subscriptionId subscription id for chainlink automation
+    /// @param callbackGasLimit callback gas limlit for chainlink automation
     constructor(
         uint256 entranceFee,
         uint256 interval,
@@ -93,7 +95,7 @@ contract Lottery is VRFConsumerBaseV2 {
      */
 
     /// @notice Enters lottery ticket
-    function enterLottery() public payable {
+    function enterLottery() external payable {
         if (msg.value < s_entranceFee) revert Lottery__InsufficientFee();
 
         if (s_lotteryState != LotteryState.OPEN) {
@@ -105,6 +107,7 @@ contract Lottery is VRFConsumerBaseV2 {
     }
 
     /**
+     * @notice Chainlink Automation function
      * @dev This is the function that the Chainlink Automation nodes call to see if
      * it's time to perform an upkeep.
      * The following should be true for this to return true:
@@ -129,6 +132,7 @@ contract Lottery is VRFConsumerBaseV2 {
     }
 
     /// @notice Picks a lottery winner
+    /// @dev Is triggered by chainlink network
     function performUpkeep(bytes calldata /* performData */ ) external {
         (bool upkeepNeeded,) = checkUpkeep("");
         if (!upkeepNeeded) {
@@ -137,57 +141,80 @@ contract Lottery is VRFConsumerBaseV2 {
             );
         }
         s_lotteryState = LotteryState.CALCULATING;
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane, i_subscriptionId, REQUEST_CONFIRMATIONS, i_callbackGasLimit, NUM_WORDS
         );
+
+        emit RequestedLotteryWinner(requestId);
     }
 
+    /// @notice Callback function for Chainlink VRFConsumer contract to retreive the random number
+    /// @param randomWords is an array of random numbers - here length = 1
     function fulfillRandomWords(uint256, /*requestId*/ uint256[] memory randomWords) internal override {
-        // effects on own contract
+        // draw winner
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
-
-        // here, wouldn't it possible that someone might enter the lottery before the winner is paid.
-        // The next round might then override the current winner?
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
         s_lotteryState = LotteryState.OPEN;
 
         emit PickedWinner(winner);
 
-        // interactions with other contracts
+        // pay winner
         (bool success,) = s_recentWinner.call{value: address(this).balance}("");
         if (!success) {
             revert Lottery__TransferFailed();
         }
     }
 
-    /// @notice Sets entry fee
-    function setEntranceFee(uint256 entranceFee) external {
-        s_entranceFee = entranceFee;
-        emit SetEntranceFee(entranceFee);
-    }
-
-    /// @notice Sets lottery interval in seconds
-    /// @param interval in seconds of the interval
-    function setInterval(uint256 interval) external {
-        s_interval = interval;
-        emit SetInterval(interval);
-    }
-
     /**
      * Getter Functions
      */
+
+    /// @notice gets minimum entrance fee
     function getEntranceFee() external view returns (uint256) {
         return s_entranceFee;
     }
 
+    /// @notice gets lottery round interval in seconds
+    function getInterval() external view returns (uint256) {
+        return s_interval;
+    }
+
+    /// @notice gets current lottery state
     function getLotteryState() external view returns (LotteryState) {
         return s_lotteryState;
     }
 
+    /// @notice gets player address at index
+    /// @param indexOfPlayer is player's index in player array
     function getPlayerAtIndex(uint256 indexOfPlayer) external view returns (address) {
         return s_players[indexOfPlayer];
+    }
+
+    /// @notice gets number of players
+    function getNumberOfPlayers() external view returns (uint256) {
+        return s_players.length;
+    }
+
+    /// @notice gets most recent winner
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
+    }
+
+    /// @notice gets timestamp of last draw if any
+    function getLastTimestamp() external view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    /// @notice gets Chainlink VRFCoordinator contract address
+    function getVrfCoordinator() external view returns (address) {
+        return address(i_vrfCoordinator);
+    }
+
+    /// @notice gets subscription id for Chainlink Automation
+    function getSubscriptionId() external view returns (uint64) {
+        return i_subscriptionId;
     }
 }

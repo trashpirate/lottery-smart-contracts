@@ -1,5 +1,6 @@
 {
     "solidity.compileUsingRemoteVersion": "v0.8.20+commit.a1b79de6",
     "solidity.defaultCompiler": "localFile",
+    "solidity.compileUsingLocalVersion": "/home/oates/projects/lottery/lottery-smart-contracts/soljson-v0.8.20+commit.a1b79de6.js",
     
 }
